@@ -1,4 +1,4 @@
-from flask import Flask, request, Response
+from flask import Flask, request, render_template
 import jsonpickle
 import numpy as np
 from PIL import Image
@@ -18,7 +18,7 @@ def get_classes(dataset):
         spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
         for row in spamreader:
             class_number = str(row).split(",")[1][:-2]
-            #print(class_number)
+
             if int(class_number) not in class_list:
                 class_list.append(int(class_number))
     class_list.sort()
@@ -26,17 +26,20 @@ def get_classes(dataset):
     return class_list
 
 # route http posts to this method
-@app.route('/', methods=['POST'])
+@app.route('/inference', methods=['POST'])
 def predict_image():
     labels = get_classes(dataset)
     image = Image.open(request.files['file'])
-    
+
+    # We transform our data to fit mobilenetv2 input expectations
     data_transforms = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
+
+    # Load model
     model = mobilenet_v2(num_classes=32)
     model.load_state_dict(torch.load('mymodel.pth'))
     model.eval()

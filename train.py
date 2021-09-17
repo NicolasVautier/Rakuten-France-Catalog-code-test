@@ -4,14 +4,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-import numpy as np
-import torchvision
-from torchvision import datasets, models, transforms
+from torchvision import datasets, transforms
 import time
 import os
-import copy
 import csv
+import getopt
+import sys
 from pathlib import Path
+import argparse
 from torchvision.models import mobilenet_v2
 
 
@@ -26,7 +26,7 @@ def get_n_image_per_classes(dataset):
     """ 
     image_classs_dict = {}
     with open(dataset, newline='') as csvfile:
-        #We skip the first line as it contains header
+        # We skip the first line as it contains header
         next(csvfile)
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
@@ -53,7 +53,7 @@ def get_split_size(n_image_per_classes):
     """ 
     for key in n_image_per_classes:
         # We want 80% of each class for training, and 20% for validation
-        n_image_per_classes[key] = round(n_image_per_classes[key] * 0.8)
+        n_image_per_classes[key] = round(n_image_per_classes[key] * 0.9)
     return n_image_per_classes
 
 def preprocess_data(dataset):
@@ -75,135 +75,139 @@ def preprocess_data(dataset):
             class_name = row[1]
             image_name = row[0]
             image_path = 'data/images/' + str(image_name).split('/')[1]
-            # For each class we create a folder that will contain our train/validation images
+            # For each class we create a folder that will contain our train/test images
             if (os.path.isfile(image_path) ):
                 if class_name not in class_list:
                     train_dir = 'data/images/train/' + str(class_name)
-                    val_dir = 'data/images/val/' + str(class_name)
+                    test_dir = 'data/images/test/' + str(class_name)
                     class_list.add(class_name)
                     Path(train_dir).mkdir(parents=True, exist_ok=True)
-                    Path(val_dir).mkdir(parents=True, exist_ok=True)
+                    Path(test_dir).mkdir(parents=True, exist_ok=True)
 
                 if (split_size[class_name] == 0):
-                        # copy image to val
-                        copyfile(image_path, 'data/images/val/' + str(image_name))
+                        # copy image to test folder
+                        copyfile(image_path, 'data/images/test/' + str(image_name))
                 else:
-                        # copy to train
+                        # copy to train folder
                         copyfile(image_path, 'data/images/train/' + str(image_name))
                         split_size[class_name] -= 1
 
 
 
-# We transform our data to fit mobilenetv2 expectations
-data_transforms = {
-    'train': transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ]),
-    'val': transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ]),
-}
 
-
-def train_model(model, criterion, optimizer, scheduler, num_epochs=5):
+def train_model(model, criterion, optimizer, num_epochs):
+    """
+    loads model and process to training.
+    :param dataset: csv file containing images names and associated labels.
+    :return: nothing.
+    """ 
     since = time.time()
-
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
+        running_loss = 0.0
 
-            running_loss = 0.0
-            running_corrects = 0
+        # Iterate over data.
+        for inputs, labels in dataloaders["train"]:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
-            # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+            # Set the parameter gradients to zero
+            optimizer.zero_grad()
 
-                # Set the parameter gradients to zero
-                optimizer.zero_grad()
+            # forward
+            # track history
+            with torch.set_grad_enabled(True):
+                outputs = model(inputs)
+                _, preds = torch.max(outputs, 1)
+                loss = criterion(outputs, labels)
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+                # backward + optimize
+                loss.backward()
+                optimizer.step()
 
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+            # statistics
+            running_loss += loss.item() * inputs.size(0)
 
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-            if phase == 'train':
-                scheduler.step()
+        epoch_loss = running_loss / dataset_sizes["train"]
 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
-
-            # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict())
+        print('{} Loss: {:.4f}'.format(
+            "train", epoch_loss))
 
         print()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}'.format(best_acc))
 
-    # load best model weights
-    model.load_state_dict(best_model_wts)
+    # load last model weights
+    model.load_state_dict(model)
     return model
 
 
+def main(argv):
+   try:
+        opts, args = getopt.getopt(argv,"h:ne:o:i:d",["num_epochs=", "output=", "datasetpath=", "imagefolder="])
+   except getopt.GetoptError:
+        print('train.py -ne <num_epochs> -o <output> -d <datasetpath> -i <imagefolder>')
+        sys.exit(2)
+   for opt, arg in opts:
+        if opt == '-h':
+            print('train.py -ne <num_epochs> -o <output> -d <datasetpath> -i <imagefolder>')
+            sys.exit()
+        elif opt in ("-ne", "--num_epochs"):
+            epoch = arg
+        elif opt in ("-o", "--output"):
+            outputfile = arg
+        elif opt in ("-d", "--datasetpath"):
+            datasetpath = arg
+        elif opt in ("-i", "--imagefolder"):
+            imagefolder = arg
 
 
 if __name__ == '__main__':
 
-    preprocess_data('./data/data_set.csv')
-    
-    data_dir = 'data/images'
+    main(sys.argv[1:])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--output')
+    parser.add_argument('-ne', '--epoch')
+    parser.add_argument('-d', '--datasetpath')
+    parser.add_argument('-i', '--imagefolder')
+    args = parser.parse_args()
+    model_pth = args.output
+    num_epochs = int(args.epoch)
+    dataset = args.datasetpath
+    data_dir = args.imagefolder
 
+    preprocess_data(dataset)
+
+    # We transform our data to fit mobilenetv2 input expectations
+    data_transforms = {
+    'train': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])}
+
+    # Load images from train folder
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x),
                                             data_transforms[x])
-                    for x in ['train', 'val']}
-
+                    for x in ['train']}
     dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
                                                 shuffle=True, num_workers=4)
-                for x in ['train', 'val']}
+                for x in ['train']}
 
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+
+    dataset_sizes = {x: len(image_datasets[x]) for x in ['train']}
     class_names = image_datasets['train'].classes
 
-    # Get mobilenetv2 model
+    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    
+    # Get mobilenetv2 model
     model = mobilenet_v2()
-    #model = torch.hub.load('pytorch/vision:v0.8.0', 'mobilenet_v2', pretrained=True)
 
     # Freeze the model
     for param in model.parameters():
@@ -217,12 +221,8 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
 
     # We will only optimize the last layer
-    optimizer_ft = optim.SGD(model.classifier[1].parameters(), lr=0.001, momentum=0.9)
+    optimizer_ft = optim.Adam(model.classifier[1].parameters(), 0.01)
 
-    # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-
-    model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                        num_epochs=10)
+    model = train_model(model, criterion, optimizer_ft, num_epochs)
     
-    torch.save(model.state_dict(), "mymodel.pth")
+    torch.save(model.state_dict(), model_pth)
