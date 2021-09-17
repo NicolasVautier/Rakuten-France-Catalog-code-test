@@ -1,6 +1,4 @@
-from flask import Flask, request, render_template
-import jsonpickle
-import numpy as np
+from flask import Flask, request
 from PIL import Image
 import torch
 import csv
