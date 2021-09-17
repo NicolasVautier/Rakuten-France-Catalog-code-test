@@ -22,7 +22,7 @@ Three scripts are expected:
 
 The code is written in Python 3 and provided with a requirements.txt file for you to install the environment.
 
-## How to use
+## Training
 
 To start training using the custom dataset provided use : 
 ```console
@@ -34,4 +34,35 @@ Example :
 python3 train.py -ne 5 -d './data/data_set.csv' -i './data/images' -o mymodel.pth
 ```
 
+## Evaluate
 
+To evaluate your model run : 
+
+```console
+python3 evaluate.py -model <modelpath> -m <metric> -i <imagefolder>
+```
+
+Example :
+
+```console
+python3 evaluate.py -m accurac -i './data/images' -model mymodel.pth
+```
+
+## Server
+
+Run the folowing command to start the server : 
+```console
+python3 server.py
+```
+
+Then in another terminal, run : 
+
+```console
+curl -F "file=@image_path" http://localhost:5000/predict
+```
+
+Example : 
+
+```console
+curl -F "file=@data/images/image_285526945_product_16273363.jpg" http://localhost:5000/predict
+```
