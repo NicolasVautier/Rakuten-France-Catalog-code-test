@@ -181,6 +181,7 @@ if __name__ == '__main__':
     dataset = args.datasetpath
     data_dir = args.imagefolder
 
+    print("--- Processing Data --- \n")
     preprocess_data(dataset)
 
     # We transform our data to fit mobilenetv2 input expectations
@@ -215,7 +216,6 @@ if __name__ == '__main__':
         param.requires_grad = False
 
     # Change the last layer to fit our needs
-    print(len(class_names))
     model.classifier[1] = nn.Linear(model.last_channel, len(class_names))
     model = model.to(device)
 
@@ -223,7 +223,8 @@ if __name__ == '__main__':
 
     # We will only optimize the last layer
     optimizer_ft = optim.Adam(model.classifier[1].parameters(), 0.001)
-
+    print("--- Training --- \n")
     model = train_model(model, criterion, optimizer_ft, num_epochs)
     
+    print("--- Saving model --- \n")
     torch.save(model.state_dict(), model_pth)

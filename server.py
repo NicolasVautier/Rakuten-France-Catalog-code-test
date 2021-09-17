@@ -22,7 +22,6 @@ def get_classes(dataset):
             if int(class_number) not in class_list:
                 class_list.append(int(class_number))
     class_list.sort()
-    print(class_list)
     return class_list
 
 # route http posts to this method

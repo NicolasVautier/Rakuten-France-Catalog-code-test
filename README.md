@@ -46,7 +46,7 @@ python3 evaluate.py -model <modelpath> -m <metric> -i <imagefolder>
 Example :
 
 ```console
-python3 evaluate.py -model mymodel.pth -m accurac -i './data/images' 
+python3 evaluate.py -model mymodel.pth -m accuracy -i './data/images' 
 ```
 
 ## Server
