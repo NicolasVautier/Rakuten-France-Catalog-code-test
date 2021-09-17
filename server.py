@@ -26,7 +26,7 @@ def get_classes(dataset):
     return class_list
 
 # route http posts to this method
-@app.route('/inference', methods=['POST'])
+@app.route('/predict', methods=['POST'])
 def predict_image():
     labels = get_classes(dataset)
     image = Image.open(request.files['file'])
@@ -44,12 +44,13 @@ def predict_image():
     model.load_state_dict(torch.load('mymodel.pth'))
     model.eval()
 
+    # Process image for inference
     image_tensor = data_transforms(image)
     image_tensor = image_tensor.unsqueeze_(0)
 
     output = model(image_tensor)
     index = labels[output.data.cpu().numpy().argmax()]
-    return "\n" + "Product_type_code" + str(index)
+    return "\n" + "Product type code is : " + str(index)
 
 
 # start flask app

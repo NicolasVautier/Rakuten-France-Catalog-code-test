@@ -168,6 +168,7 @@ def main(argv):
 
 if __name__ == '__main__':
 
+    # Get main args
     main(sys.argv[1:])
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--output')
@@ -221,7 +222,7 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
 
     # We will only optimize the last layer
-    optimizer_ft = optim.Adam(model.classifier[1].parameters(), 0.01)
+    optimizer_ft = optim.Adam(model.classifier[1].parameters(), 0.001)
 
     model = train_model(model, criterion, optimizer_ft, num_epochs)
     

@@ -34,13 +34,13 @@ def check_accuracy(loader, model):
 
 def main(argv):
    try:
-        opts, args = getopt.getopt(argv,"h:o:m:i",["num_epochs=", "modelpath=", "metric="])
+        opts, args = getopt.getopt(argv,"h:o:m:i",["modelpath=", "metric=", "imagefolder="])
    except getopt.GetoptError:
-        print('train.py -ne <num_epochs> -o <model_pth> -m <metric> -i <imagefolder>')
+        print('evaluate.py -model <modelpath> -m <metric> -i <imagefolder>')
         sys.exit(2)
    for opt, arg in opts:
         if opt == '-h':
-            print('train.py -model <model_pth> -m <metric> -i <imagefolder>')
+            print('evaluate.py -model <modelpath> -m <metric> -i <imagefolder>')
             sys.exit()
         elif opt in ("-model", "--modelpath"):
             model_pth = arg
@@ -51,6 +51,7 @@ def main(argv):
 
 if __name__ == '__main__':
 
+    # Get main args
     main(sys.argv[1:])
     parser = argparse.ArgumentParser()
     parser.add_argument('-model', '--modelpath')
@@ -78,6 +79,7 @@ if __name__ == '__main__':
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])}
 
+    # Load images from test folder
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x),
                                             data_transforms[x])
                     for x in ['test']}
