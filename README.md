@@ -19,6 +19,8 @@ Three scripts are provided:
 
 The code is written in Python 3 and provided with a requirements.txt file for you to install the environment.
 
+A model named "mymodel.pth" is provided, but doesn't work well due to poor cpu and lack of training optimizations.
+
 ## Training
 
 First, unzip the data.zip file.
